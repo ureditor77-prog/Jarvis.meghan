@@ -1,0 +1,1282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Jarvis — Siri-Replica Multilingual Personal AI Assistant</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background: #05050a;
+      color: #ffffff;
+      overflow-x: hidden;
+    }
+
+    /* Apple iOS 18 / Siri Full-Screen Edge Glow */
+    .siri-edge-glow {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 40;
+      opacity: 0;
+      transition: opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow:
+        inset 0 0 35px 8px rgba(94, 92, 230, 0.65),
+        inset 0 0 70px 18px rgba(255, 55, 95, 0.45),
+        inset 0 0 110px 28px rgba(50, 215, 75, 0.25),
+        inset 0 0 140px 36px rgba(100, 210, 255, 0.35);
+      animation: edgePulse 3.2s infinite alternate ease-in-out;
+    }
+
+    .siri-edge-glow.active {
+      opacity: 1;
+    }
+
+    @keyframes edgePulse {
+      0% {
+        box-shadow:
+          inset 0 0 30px 6px rgba(10, 132, 255, 0.75),
+          inset 0 0 65px 16px rgba(191, 90, 242, 0.55),
+          inset 0 0 105px 25px rgba(255, 55, 95, 0.4);
+      }
+      50% {
+        box-shadow:
+          inset 0 0 42px 10px rgba(255, 55, 95, 0.75),
+          inset 0 0 80px 22px rgba(100, 210, 255, 0.6),
+          inset 0 0 120px 32px rgba(94, 92, 230, 0.45);
+      }
+      100% {
+        box-shadow:
+          inset 0 0 36px 8px rgba(48, 209, 88, 0.65),
+          inset 0 0 75px 20px rgba(10, 132, 255, 0.7),
+          inset 0 0 115px 30px rgba(191, 90, 242, 0.55);
+      }
+    }
+
+    /* Frosted Glass Material (iOS Vibrancy) */
+    .ios-glass {
+      background: rgba(28, 28, 36, 0.68);
+      backdrop-filter: blur(28px) saturate(190%);
+      -webkit-backdrop-filter: blur(28px) saturate(190%);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+    }
+
+    .ios-glass-light {
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    /* Star Orb Animations */
+    @keyframes starFloat {
+      0%, 100% { transform: translateY(0px) scale(1); }
+      50% { transform: translateY(-5px) scale(1.04); }
+    }
+
+    @keyframes starSpinSlow {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    @keyframes starSpinReverse {
+      0% { transform: rotate(360deg); }
+      100% { transform: rotate(0deg); }
+    }
+
+    .star-orb-container {
+      animation: starFloat 3.6s ease-in-out infinite;
+    }
+
+    .star-layer-1 {
+      animation: starSpinSlow 14s linear infinite;
+      transform-origin: center;
+    }
+
+    .star-layer-2 {
+      animation: starSpinReverse 10s linear infinite;
+      transform-origin: center;
+    }
+
+    .star-orb-active .star-layer-1 {
+      animation-duration: 3.5s;
+    }
+
+    .star-orb-active .star-layer-2 {
+      animation-duration: 2.5s;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.18);
+      border-radius: 9999px;
+    }
+
+    /* Siri Popover Entry Animation */
+    @keyframes cardSlideUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.96);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    .siri-card-animate {
+      animation: cardSlideUp 0.38s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between relative select-none">
+
+  <!-- Full-Screen Siri Edge Glow -->
+  <div id="siriEdgeGlow" class="siri-edge-glow"></div>
+
+  <!-- Ambient iOS Wallpaper Background -->
+  <div class="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+    <div class="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-indigo-600/25 blur-[110px]"></div>
+    <div class="absolute top-1/4 -right-24 w-96 h-96 rounded-full bg-fuchsia-600/20 blur-[120px]"></div>
+    <div class="absolute bottom-10 left-1/3 w-80 h-80 rounded-full bg-cyan-500/20 blur-[110px]"></div>
+  </div>
+
+  <!-- Top iOS Status & Control Bar -->
+  <header class="relative z-30 w-full max-w-4xl mx-auto px-4 pt-3 pb-2 flex flex-wrap items-center justify-between gap-2">
+    <!-- Left: Time & Jarvis Brand with Star Logo -->
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-2xl ios-glass flex items-center justify-center shadow-lg border border-white/20">
+        <!-- Mini Star Logo -->
+        <svg class="w-5 h-5" viewBox="0 0 100 100" fill="none">
+          <defs>
+            <linearGradient id="miniStarGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#38bdf8" />
+              <stop offset="50%" stop-color="#a855f7" />
+              <stop offset="100%" stop-color="#ec4899" />
+            </linearGradient>
+          </defs>
+          <path d="M50 5 L61 36 L94 38 L68 59 L77 91 L50 73 L23 91 L32 59 L6 38 L39 36 Z" fill="url(#miniStarGrad)" />
+        </svg>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="font-semibold tracking-tight text-base text-white">Jarvis</span>
+          <span class="text-[11px] px-2 py-0.5 rounded-full bg-gradient-to-r from-sky-500/20 via-purple-500/20 to-pink-500/20 border border-white/15 text-sky-300 font-medium">Siri Replica • Star Edition</span>
+        </div>
+        <div class="text-xs text-zinc-400 flex items-center gap-2">
+          <span id="statusClock">09:20</span>
+          <span>•</span>
+          <span id="wakeWordStatusBadge" class="text-emerald-400 font-medium">Wake word: "Jarvis" Active</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Controls (Wake Word Toggle, Language Selector, Sound Toggle, Help) -->
+    <div class="flex items-center gap-2 flex-wrap">
+      <!-- Wake Word Always-On Toggle -->
+      <button id="toggleWakeWordBtn" type="button" class="ios-glass px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5 hover:bg-white/15 transition active:scale-95" title="Toggle Always-Listening Wake Word ('Jarvis')">
+        <span id="wakeDot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span id="wakeBtnLabel">Always Listen: ON</span>
+      </button>
+
+      <!-- Simulate saying "Jarvis!" button (for instant testing or no-mic environments) -->
+      <button id="simulateWakeBtn" type="button" class="px-3 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-r from-sky-500 via-purple-500 to-pink-500 text-white shadow-md hover:opacity-90 transition active:scale-95 flex items-center gap-1">
+        <span>★</span>
+        <span>Say "Jarvis"</span>
+      </button>
+
+      <!-- Multilingual Selector -->
+      <select id="languageSelect" aria-label="Select Language" class="ios-glass px-2.5 py-1.5 rounded-full text-xs font-medium text-white bg-transparent focus:outline-none cursor-pointer">
+        <option value="auto" class="bg-zinc-900 text-white">🌐 Auto-Detect (All Languages)</option>
+        <option value="en-US" class="bg-zinc-900 text-white">🇺🇸 English (US)</option>
+        <option value="hi-IN" class="bg-zinc-900 text-white">🇮🇳 हिन्दी (Hindi)</option>
+        <option value="mr-IN" class="bg-zinc-900 text-white">🇮🇳 मराठी (Marathi)</option>
+        <option value="es-ES" class="bg-zinc-900 text-white">🇪🇸 Español (Spanish)</option>
+        <option value="fr-FR" class="bg-zinc-900 text-white">🇫🇷 Français (French)</option>
+        <option value="de-DE" class="bg-zinc-900 text-white">🇩🇪 Deutsch (German)</option>
+        <option value="ja-JP" class="bg-zinc-900 text-white">🇯🇵 日本語 (Japanese)</option>
+        <option value="zh-CN" class="bg-zinc-900 text-white">🇨🇳 中文 (Mandarin)</option>
+        <option value="ar-SA" class="bg-zinc-900 text-white">🇸🇦 العربية (Arabic)</option>
+        <option value="pt-BR" class="bg-zinc-900 text-white">🇧🇷 Português (Portuguese)</option>
+        <option value="ru-RU" class="bg-zinc-900 text-white">🇷🇺 Русский (Russian)</option>
+        <option value="ko-KR" class="bg-zinc-900 text-white">🇰🇷 한국어 (Korean)</option>
+        <option value="ta-IN" class="bg-zinc-900 text-white">🇮🇳 தமிழ் (Tamil)</option>
+        <option value="bn-IN" class="bg-zinc-900 text-white">🇮🇳 বাংলা (Bengali)</option>
+      </select>
+
+      <!-- Voice Output Mute Toggle -->
+      <button id="toggleTtsBtn" type="button" class="ios-glass p-2 rounded-full text-xs hover:bg-white/15 transition" title="Toggle Voice Responses">
+        <span id="ttsIcon">🔊</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Siri Stage & Dynamic Cards Area -->
+  <main class="relative z-20 flex-1 w-full max-w-3xl mx-auto px-4 py-3 flex flex-col justify-between overflow-y-auto">
+    
+    <!-- Top Banner: Multilingual & Wake Word Instructions -->
+    <div class="ios-glass-light rounded-2xl p-3 mb-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs text-zinc-300">
+      <div class="flex items-center gap-2.5">
+        <span class="text-lg">✨</span>
+        <div>
+          <p class="font-medium text-white">Say <span class="text-sky-400 font-semibold">"Jarvis"</span> or <span class="text-pink-400 font-semibold">"Hey Jarvis"</span> at any time to summon on screen like Siri.</p>
+          <p class="text-zinc-400 text-[11px]">Speaks & understands English, Hindi, Marathi, Spanish, French, Japanese, Arabic, Chinese, and 50+ languages.</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-1.5 self-end sm:self-center shrink-0">
+        <button id="clearHistoryBtn" type="button" class="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-zinc-200 transition text-[11px]">
+          Reset Screen
+        </button>
+      </div>
+    </div>
+
+    <!-- Conversation & Siri Widget Cards Stream -->
+    <div id="siriStream" class="flex-1 space-y-3 overflow-y-auto pr-1 max-h-[52vh] sm:max-h-[56vh]">
+      <!-- Default Welcome Siri Card -->
+      <div class="ios-glass rounded-3xl p-5 shadow-2xl siri-card-animate">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs uppercase tracking-widest text-sky-400 font-semibold">Jarvis Intelligence</span>
+          <span class="text-xs text-zinc-400">Ready • Multilingual</span>
+        </div>
+        <h1 class="text-xl sm:text-2xl font-semibold tracking-tight text-white mb-2">
+          "Jarvis, what can you do?"
+        </h1>
+        <p class="text-sm text-zinc-300 leading-relaxed mb-4">
+          I'm <strong class="text-white">Jarvis</strong>—designed cut-to-cut like Siri with a cosmic <strong class="text-pink-400">Star</strong> core. Call my name out loud, tap the glowing Star below, or try any command in any language:
+        </p>
+
+        <!-- Multilingual Quick Suggestion Chips -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+          <button type="button" data-prompt="Jarvis, what is the weather in Mumbai right now?" class="quick-chip text-left p-2.5 rounded-2xl bg-white/5 hover:bg-white/15 border border-white/10 transition flex items-center justify-between">
+            <span>☀️ "Jarvis, weather in Mumbai"</span>
+            <span class="text-zinc-400">EN</span>
+          </button>
+          <button type="button" data-prompt="जार्विस, आज का मौसम कैसा है और समय क्या हुआ है?" class="quick-chip text-left p-2.5 rounded-2xl bg-white/5 hover:bg-white/15 border border-white/10 transition flex items-center justify-between">
+            <span>🇮🇳 "जार्विस, आज का मौसम और समय?"</span>
+            <span class="text-zinc-400">HI</span>
+          </button>
+          <button type="button" data-prompt="जॉर्विस, मला एक जोक सांग आणि १० सेकंदाचा टायमर लाव" class="quick-chip text-left p-2.5 rounded-2xl bg-white/5 hover:bg-white/15 border border-white/10 transition flex items-center justify-between">
+            <span>🇮🇳 "जॉर्विस, १० सेकंदाचा टायमर लाव"</span>
+            <span class="text-zinc-400">MR</span>
+          </button>
+          <button type="button" data-prompt="Jarvis, traduce 'Good morning my friend' al español, francés y japonés" class="quick-chip text-left p-2.5 rounded-2xl bg-white/5 hover:bg-white/15 border border-white/10 transition flex items-center justify-between">
+            <span>🌍 "Jarvis, translate across languages"</span>
+            <span class="text-zinc-400">ES/FR/JA</span>
+          </button>
+          <button type="button" data-prompt="Jarvis, play some chill synthwave music" class="quick-chip text-left p-2.5 rounded-2xl bg-white/5 hover:bg-white/15 border border-white/10 transition flex items-center justify-between">
+            <span>🎵 "Jarvis, play chill synthwave music"</span>
+            <span class="text-zinc-400">Music</span>
+          </button>
+          <button type="button" data-prompt="Jarvis, calculate 18% tip on 2,450 and set brightness to 80%" class="quick-chip text-left p-2.5 rounded-2xl bg-white/5 hover:bg-white/15 border border-white/10 transition flex items-center justify-between">
+            <span>🧮 "Jarvis, 18% tip on 2450 & brightness"</span>
+            <span class="text-zinc-400">Tools</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Transcription Caption (Siri Floating Text) -->
+    <div id="liveCaptionContainer" class="my-2 min-h-[36px] flex flex-col items-center justify-center text-center px-4">
+      <p id="liveUserTranscript" class="text-lg sm:text-xl font-medium tracking-tight text-white/90 transition-all duration-200"></p>
+      <p id="assistantStateSubtitle" class="text-xs text-sky-300/90 mt-0.5">Say "Jarvis" or tap the Star orb</p>
+    </div>
+  </main>
+
+  <!-- Bottom Siri Dock: Glowing Star Orb + Waveform + Input Bar -->
+  <footer class="relative z-30 w-full max-w-3xl mx-auto px-4 pb-5 pt-1 flex flex-col items-center">
+    
+    <!-- Siri Audio Waveform Canvas + Glowing Star Orb -->
+    <div class="relative w-full flex items-center justify-center h-28 mb-2">
+      <!-- Dynamic Siri Ribbon Waveform Canvas -->
+      <canvas id="siriWaveCanvas" class="w-full h-24 pointer-events-none"></canvas>
+
+      <!-- The Siri-Style Glowing Multi-Layered Star Logo Button -->
+      <button id="starOrbBtn" type="button" aria-label="Activate Jarvis" class="star-orb-container absolute w-24 h-24 rounded-full flex items-center justify-center focus:outline-none group cursor-pointer">
+        <!-- Outer Iridescent Aura -->
+        <div id="starAura" class="absolute inset-0 rounded-full bg-gradient-to-tr from-sky-500 via-fuchsia-500 to-rose-500 blur-xl opacity-70 group-hover:opacity-100 transition-all duration-300 scale-95 group-hover:scale-110"></div>
+
+        <!-- Glass Sphere Housing (Like Siri Orb) -->
+        <div class="relative w-20 h-20 rounded-full flex items-center justify-center overflow-hidden shadow-2xl border border-white/25" style="background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.22), rgba(15,15,30,0.85) 70%);">
+          
+          <!-- SVG Multi-Layer Glowing Siri Star Logo -->
+          <svg class="w-16 h-16 overflow-visible" viewBox="0 0 120 120" fill="none">
+            <defs>
+              <linearGradient id="siriStarPrimary" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#38bdf8" />
+                <stop offset="45%" stop-color="#818cf8" />
+                <stop offset="75%" stop-color="#e879f9" />
+                <stop offset="100%" stop-color="#fb7185" />
+              </linearGradient>
+              <linearGradient id="siriStarSecondary" x1="100%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#34d399" stop-opacity="0.85" />
+                <stop offset="50%" stop-color="#38bdf8" stop-opacity="0.85" />
+                <stop offset="100%" stop-color="#c084fc" stop-opacity="0.9" />
+              </linearGradient>
+              <radialGradient id="siriStarCore" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="#ffffff" stop-opacity="1" />
+                <stop offset="55%" stop-color="#e0f2fe" stop-opacity="0.8" />
+                <stop offset="100%" stop-color="#a855f7" stop-opacity="0" />
+              </radialGradient>
+              <filter id="starGlowFilter" x="-30%" y="-30%" width="160%" height="160%">
+                <feGaussianBlur stdDeviation="4" result="blur" />
+                <feComposite in="SourceGraphic" in2="blur" operator="over" />
+              </filter>
+            </defs>
+
+            <!-- Background Rotating 8-Point Cosmic Star Ribbon -->
+            <g class="star-layer-2" opacity="0.75">
+              <path d="M60 8 L72 44 L108 44 L79 66 L90 102 L60 80 L30 102 L41 66 L12 44 L48 44 Z"
+                    fill="url(#siriStarSecondary)" transform="rotate(22.5 60 60) scale(0.92)" transform-origin="60 60" />
+            </g>
+
+            <!-- Foreground Rotating 5-Point Siri Star Logo -->
+            <g class="star-layer-1" filter="url(#starGlowFilter)">
+              <path d="M60 10 L73.5 43.5 L109 46.5 L81.5 70 L90 105 L60 86 L30 105 L38.5 70 L11 46.5 L46.5 43.5 Z"
+                    fill="url(#siriStarPrimary)" stroke="rgba(255,255,255,0.65)" stroke-width="1.5" stroke-linejoin="round" />
+            </g>
+
+            <!-- Inner Brilliant 4-Point Star Flare -->
+            <path d="M60 28 C63 48 72 57 92 60 C72 63 63 72 60 92 C57 72 48 63 28 60 C48 57 57 48 60 28 Z"
+                  fill="url(#siriStarCore)" />
+          </svg>
+
+          <!-- Specular Glass Highlight -->
+          <div class="absolute -top-6 -left-6 w-16 h-12 rounded-full bg-white/20 blur-md pointer-events-none"></div>
+        </div>
+      </button>
+    </div>
+
+    <!-- Type to Jarvis Bar (Siri "Type to Siri" style) -->
+    <form id="jarvisForm" class="w-full ios-glass rounded-full p-1.5 pl-4 flex items-center gap-2 shadow-xl">
+      <span class="text-sky-400 text-sm">★</span>
+      <input
+        id="jarvisInput"
+        type="text"
+        autocomplete="off"
+        placeholder="Ask Jarvis anything in any language... (or say 'Jarvis')"
+        class="flex-1 bg-transparent text-sm text-white placeholder-zinc-400 focus:outline-none"
+      />
+      <button
+        id="micPushBtn"
+        type="button"
+        title="Speak Command Now"
+        class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition active:scale-95"
+      >
+        🎤
+      </button>
+      <button
+        type="submit"
+        class="px-4 py-2 rounded-full text-xs font-semibold bg-gradient-to-r from-sky-500 via-indigo-500 to-pink-500 text-white hover:opacity-95 transition active:scale-95"
+      >
+        Ask Jarvis
+      </button>
+    </form>
+  </footer>
+
+  <script>
+    /********************************************************************
+     * JARVIS — SIRI-REPLICA MULTILINGUAL PERSONAL AI ASSISTANT
+     ********************************************************************/
+
+    // --- State ---
+    const state = {
+      isAwake: false,
+      isListeningCommand: false,
+      alwaysListenWakeWord: true,
+      ttsEnabled: true,
+      selectedLang: 'auto',
+      audioAmplitude: 0.08,
+      activeTimerInterval: null,
+      timerRemainingSec: 0,
+      musicPlaying: false,
+      musicOsc: null,
+      deviceSettings: {
+        wifi: true,
+        bluetooth: true,
+        darkMode: true,
+        doNotDisturb: false,
+        brightness: 85,
+        volume: 75,
+        flashlight: false
+      },
+      notes: [
+        { id: 1, text: "Call mom at 7 PM", time: "Today" }
+      ]
+    };
+
+    // --- DOM Elements ---
+    const siriEdgeGlow = document.getElementById('siriEdgeGlow');
+    const statusClock = document.getElementById('statusClock');
+    const wakeWordStatusBadge = document.getElementById('wakeWordStatusBadge');
+    const toggleWakeWordBtn = document.getElementById('toggleWakeWordBtn');
+    const wakeDot = document.getElementById('wakeDot');
+    const wakeBtnLabel = document.getElementById('wakeBtnLabel');
+    const simulateWakeBtn = document.getElementById('simulateWakeBtn');
+    const languageSelect = document.getElementById('languageSelect');
+    const toggleTtsBtn = document.getElementById('toggleTtsBtn');
+    const ttsIcon = document.getElementById('ttsIcon');
+    const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+    const siriStream = document.getElementById('siriStream');
+    const liveUserTranscript = document.getElementById('liveUserTranscript');
+    const assistantStateSubtitle = document.getElementById('assistantStateSubtitle');
+    const starOrbBtn = document.getElementById('starOrbBtn');
+    const starAura = document.getElementById('starAura');
+    const jarvisForm = document.getElementById('jarvisForm');
+    const jarvisInput = document.getElementById('jarvisInput');
+    const micPushBtn = document.getElementById('micPushBtn');
+    const siriWaveCanvas = document.getElementById('siriWaveCanvas');
+
+    // --- Clock Update ---
+    function updateClock() {
+      const now = new Date();
+      statusClock.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    updateClock();
+    setInterval(updateClock, 15000);
+
+    // --- Web Audio API: Authentic Siri Activation Chime & Music Synth ---
+    let audioCtx = null;
+    function ensureAudioContext() {
+      if (!audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) {
+          audioCtx = new AudioContextClass();
+        }
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function playSiriChime(type = 'wake') {
+      try {
+        ensureAudioContext();
+        if (!audioCtx) return;
+
+        const now = audioCtx.currentTime;
+        const osc1 = audioCtx.createOscillator();
+        const osc2 = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+
+        osc1.type = 'sine';
+        osc2.type = 'triangle';
+
+        if (type === 'wake') {
+          // Iconic Siri-style two-tone harmonic fifth upward chime
+          osc1.frequency.setValueAtTime(523.25, now);       // C5
+          osc1.frequency.exponentialRampToValueAtTime(783.99, now + 0.14); // G5
+          osc2.frequency.setValueAtTime(1046.5, now);       // C6
+          osc2.frequency.exponentialRampToValueAtTime(1567.98, now + 0.16); // G6
+        } else {
+          // Subtle completion chime
+          osc1.frequency.setValueAtTime(659.25, now);       // E5
+          osc1.frequency.exponentialRampToValueAtTime(523.25, now + 0.12); // C5
+          osc2.frequency.setValueAtTime(987.77, now);
+          osc2.frequency.exponentialRampToValueAtTime(783.99, now + 0.12);
+        }
+
+        gain.gain.setValueAtTime(0.001, now);
+        gain.gain.exponentialRampToValueAtTime(0.18, now + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+
+        osc1.connect(gain);
+        osc2.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc1.start(now);
+        osc2.start(now);
+        osc1.stop(now + 0.36);
+        osc2.stop(now + 0.36);
+      } catch (e) {
+        // Ignore audio context restrictions before gesture
+      }
+    }
+
+    // --- Siri Multi-Ribbon Waveform Animation ---
+    const ctx = siriWaveCanvas.getContext('2d');
+    let wavePhase = 0;
+
+    function resizeWaveCanvas() {
+      const rect = siriWaveCanvas.getBoundingClientRect();
+      siriWaveCanvas.width = rect.width * (window.devicePixelRatio || 1);
+      siriWaveCanvas.height = rect.height * (window.devicePixelRatio || 1);
+    }
+    window.addEventListener('resize', resizeWaveCanvas);
+    window.addEventListener('load', resizeWaveCanvas);
+    setTimeout(resizeWaveCanvas, 50);
+
+    function renderSiriWaveform() {
+      const w = siriWaveCanvas.width;
+      const h = siriWaveCanvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const targetAmp = state.isAwake ? 0.55 : 0.08;
+      state.audioAmplitude += (targetAmp - state.audioAmplitude) * 0.12;
+
+      const ribbons = [
+        { color: 'rgba(56, 189, 248, 0.65)', speed: 0.07, freq: 1.5, ampMult: 1.0 },
+        { color: 'rgba(168, 85, 247, 0.60)', speed: 0.05, freq: 2.1, ampMult: 0.85 },
+        { color: 'rgba(244, 63, 94, 0.55)',  speed: 0.09, freq: 1.2, ampMult: 0.9 },
+        { color: 'rgba(52, 211, 153, 0.45)', speed: 0.06, freq: 2.6, ampMult: 0.65 }
+      ];
+
+      wavePhase += 1;
+
+      ribbons.forEach((ribbon, idx) => {
+        ctx.beginPath();
+        const midY = h / 2;
+        for (let x = 0; x <= w; x += 4) {
+          const normX = (x / w) * 2 - 1; // -1 to 1
+          const envelope = Math.pow(1 - normX * normX, 2.2); // Bell curve tapering at edges
+          const yOffset =
+            Math.sin(normX * Math.PI * ribbon.freq + wavePhase * ribbon.speed + idx) *
+            (h * 0.42) *
+            state.audioAmplitude *
+            ribbon.ampMult *
+            envelope;
+
+          if (x === 0) {
+            ctx.moveTo(x, midY + yOffset);
+          } else {
+            ctx.lineTo(x, midY + yOffset);
+          }
+        }
+        ctx.strokeStyle = ribbon.color;
+        ctx.lineWidth = 3 * (window.devicePixelRatio || 1);
+        ctx.stroke();
+      });
+
+      requestAnimationFrame(renderSiriWaveform);
+    }
+    requestAnimationFrame(renderSiriWaveform);
+
+    // --- Multilingual Language Detection & Dictionary (All Major World & Indian Languages) ---
+    const wakeWordVariants = [
+      'jarvis', 'hey jarvis', 'hi jarvis', 'ok jarvis', 'hello jarvis',
+      'जार्विस', 'जॉर्विस', 'हे जार्विस', 'हे जॉर्विस',
+      'جارفيس', 'джарвис', 'ジャービス', '贾维斯', '자비스'
+    ];
+
+    function detectLanguageFromText(text) {
+      if (state.selectedLang !== 'auto') return state.selectedLang;
+
+      // Script-based detection
+      if (/[\u0900-\u097F]/.test(text)) {
+        // Check Marathi vs Hindi keywords
+        if (/(आहे|मला|सांग|काय|कसा|टायमर|वेळ|नमस्कार|तुझे)/.test(text)) return 'mr-IN';
+        return 'hi-IN';
+      }
+      if (/[\u0B80-\u0BFF]/.test(text)) return 'ta-IN';
+      if (/[\u0980-\u09FF]/.test(text)) return 'bn-IN';
+      if (/[\u0600-\u06FF]/.test(text)) return 'ar-SA';
+      if (/[\u3040-\u30FF]/.test(text)) return 'ja-JP';
+      if (/[\uAC00-\uD7AF]/.test(text)) return 'ko-KR';
+      if (/[\u4E00-\u9FFF]/.test(text)) return 'zh-CN';
+      if (/[\u0400-\u04FF]/.test(text)) return 'ru-RU';
+
+      // Latin language heuristics
+      const lower = text.toLowerCase();
+      if (/\b(hola|como estas|tiempo|clima|hora|gracias|traduce|buenos dias|que tal)\b/.test(lower)) return 'es-ES';
+      if (/\b(bonjour|salut|heure|météo|merci|comment|traduis)\b/.test(lower)) return 'fr-FR';
+      if (/\b(hallo|wie geht|wetter|uhrzeit|danke|übersetze)\b/.test(lower)) return 'de-DE';
+      if (/\b(olá|bom dia|tempo|obrigado|horas)\b/.test(lower)) return 'pt-BR';
+
+      return 'en-US';
+    }
+
+    const localizedStrings = {
+      'en-US': {
+        listening: "I'm listening... Go ahead.",
+        greeting: "Hey there! I'm Jarvis, your personal AI assistant. What can I do for you?",
+        timePrefix: "The current time is",
+        weatherTitle: "Current Weather",
+        joke: "Why do astronomers love Jarvis? Because I already have a Star logo!",
+        identity: "I am Jarvis—your Siri-style personal assistant with a cosmic Star core. I understand and speak languages from all around the world."
+      },
+      'hi-IN': {
+        listening: "हाँ, मैं सुन रहा हूँ... बताइए मैं क्या मदद करूँ?",
+        greeting: "नमस्ते! मैं जार्विस हूँ, आपका पर्सनल एआई असिस्टेंट। आज मैं आपकी क्या सहायता कर सकता हूँ?",
+        timePrefix: "अभी समय हुआ है",
+        weatherTitle: "मौसम की जानकारी",
+        joke: "एक कंप्यूटर ने दूसरे कंप्यूटर से क्या कहा? 01001000 01101001! (यानी हाय!)",
+        identity: "मेरा नाम जार्विस है। मुझे बिल्कुल सिरी की तरह बनाया गया है, बस मेरा लोगो एक चमकता हुआ तारा (Star) है और मैं सभी भाषाएँ समझ सकता हूँ।"
+      },
+      'mr-IN': {
+        listening: "हो, मी ऐकत आहे... सांगा मी काय मदत करू?",
+        greeting: "नमस्कार! मी जॉर्विस आहे, तुमचा पर्सनल AI असिस्टंट. मी तुमची काय मदत करू शकतो?",
+        timePrefix: "सध्याची वेळ आहे",
+        weatherTitle: "हवामानाची माहिती",
+        joke: "शिक्षक: जगात सर्वात वेगवान काय आहे? विद्यार्थी: जॉर्विसचा रिप्लाय!",
+        identity: "मी जॉर्विस आहे! सिरी प्रमाणेच डिझाईन केलेला तुमचा स्टार (Star) असिस्टंट. मी मराठी, हिंदी, इंग्रजी आणि जगातील सर्व भाषा बोलू शकतो."
+      },
+      'es-ES': {
+        listening: "Te escucho... dime en qué puedo ayudarte.",
+        greeting: "¡Hola! Soy Jarvis, tu asistente personal con insignia de Estrella. ¿En qué te ayudo hoy?",
+        timePrefix: "La hora actual es",
+        weatherTitle: "Pronóstico del Tiempo",
+        joke: "¿Por qué Jarvis tiene una estrella en lugar de una esfera? ¡Porque brilla en todos los idiomas!",
+        identity: "Soy Jarvis, tu asistente personal inspirado en Siri con el emblema de una estrella. Hablo todos los idiomas."
+      },
+      'fr-FR': {
+        listening: "Je vous écoute... que puis-je faire pour vous ?",
+        greeting: "Bonjour ! Je suis Jarvis, votre assistant personnel étoilé. Comment puis-je vous aider ?",
+        timePrefix: "Il est actuellement",
+        weatherTitle: "Météo Actuelle",
+        joke: "Pourquoi Jarvis a-t-il une étoile ? Pour guider vos journées à la vitesse de la lumière !",
+        identity: "Je suis Jarvis, réplique de Siri avec un logo en étoile, capable de parler toutes les langues."
+      },
+      'de-DE': {
+        listening: "Ich höre zu... wie kann ich dir helfen?",
+        greeting: "Hallo! Ich bin Jarvis, dein persönlicher KI-Assistent. Was kann ich für dich tun?",
+        timePrefix: "Es ist jetzt",
+        weatherTitle: "Aktuelles Wetter",
+        joke: "Warum hat Jarvis ein Stern-Logo? Weil gute Antworten immer glänzen!",
+        identity: "Ich bin Jarvis, dein persönlicher Assistent im Siri-Design mit einem leuchtenden Stern."
+      },
+      'ja-JP': {
+        listening: "聞いています… ご用件をどうぞ。",
+        greeting: "こんにちは！私はジャービス（Jarvis）、星のロゴを持つパーソナルAIアシスタントです。",
+        timePrefix: "現在の時刻は",
+        weatherTitle: "現在の天気",
+        joke: "なぜジャービスのロゴは星なのですか？どんな言語でも輝くためです！",
+        identity: "私はジャービスです。Siriと同じデザインで、輝く星のコアを持ち、世界中の言語に対応しています。"
+      },
+      'zh-CN': {
+        listening: "我在听，请说……",
+        greeting: "你好！我是贾维斯（Jarvis），拥有星形标志的全语言个人AI助手。",
+        timePrefix: "现在的时间是",
+        weatherTitle: "实时天气",
+        joke: "为什么贾维斯的标志是一颗星？因为智慧在每种语言里都闪闪发光！",
+        identity: "我是贾维斯，采用Siri同款界面与星形核心，精通全球各种语言。"
+      },
+      'ar-SA': {
+        listening: "أنا أستمع إليك... تفضل.",
+        greeting: "مرحباً! أنا جارفيس (Jarvis)، مساعدك الذكي بشعار النجمة. كيف يمكنني مساعدتك؟",
+        timePrefix: "الوقت الحالي هو",
+        weatherTitle: "حالة الطقس",
+        joke: "لماذا يملك جارفيس شعار نجمة؟ ليضيء إجاباتك بكل لغات العالم!",
+        identity: "أنا جارفيس، مساعدك الذكي بتصميم مطابق لسيري مع شعار النجمة، وأتحدث جميع اللغات."
+      }
+    };
+
+    function getLocaleBundle(langCode) {
+      return localizedStrings[langCode] || localizedStrings['en-US'];
+    }
+
+    // --- Speech Synthesis (Speak in matching language) ---
+    function speakResponse(text, langCode = 'en-US') {
+      if (!state.ttsEnabled || !('speechSynthesis' in window)) return;
+      try {
+        window.speechSynthesis.cancel();
+        const utter = new SpeechSynthesisUtterance(text);
+        utter.lang = langCode;
+        utter.rate = 1.02;
+        utter.pitch = 1.05;
+
+        const voices = window.speechSynthesis.getVoices();
+        const matchedVoice = voices.find(v => v.lang.toLowerCase().startsWith(langCode.split('-')[0].toLowerCase()));
+        if (matchedVoice) utter.voice = matchedVoice;
+
+        utter.onstart = () => {
+          state.isAwake = true;
+          state.audioAmplitude = 0.7;
+          siriEdgeGlow.classList.add('active');
+          starOrbBtn.classList.add('star-orb-active');
+        };
+        utter.onend = () => {
+          if (!state.isListeningCommand) {
+            state.isAwake = false;
+            siriEdgeGlow.classList.remove('active');
+            starOrbBtn.classList.remove('star-orb-active');
+          }
+        };
+        window.speechSynthesis.speak(utter);
+      } catch (e) {
+        // Fallback if speech synthesis is blocked
+      }
+    }
+
+    // --- Summon Jarvis on Screen (Like Siri Wake Word Activation) ---
+    function summonJarvisOnScreen(initialCommand = '', triggeredByWakeWord = false) {
+      playSiriChime('wake');
+      state.isAwake = true;
+      state.audioAmplitude = 0.75;
+      siriEdgeGlow.classList.add('active');
+      starOrbBtn.classList.add('star-orb-active');
+      starAura.classList.add('scale-125', 'opacity-100');
+
+      const lang = state.selectedLang === 'auto' ? 'en-US' : state.selectedLang;
+      const bundle = getLocaleBundle(lang);
+
+      liveUserTranscript.textContent = triggeredByWakeWord ? '"Jarvis!"' : 'Listening...';
+      assistantStateSubtitle.textContent = bundle.listening;
+
+      if (initialCommand && initialCommand.trim().length > 0) {
+        setTimeout(() => {
+          processUserCommand(initialCommand.trim());
+        }, 350);
+      } else {
+        speakResponse(bundle.listening, lang);
+        startSingleCommandVoiceCapture();
+      }
+    }
+
+    // --- Append Siri-Style Card to Screen ---
+    function appendSiriCard({ userQuery, langCode, title, spokenText, widgetHtml }) {
+      const card = document.createElement('div');
+      card.className = 'ios-glass rounded-3xl p-5 shadow-2xl siri-card-animate space-y-3';
+
+      const langBadge = langCode.toUpperCase();
+
+      card.innerHTML = `
+        <div class="flex items-center justify-between border-b border-white/10 pb-2.5">
+          <div class="flex items-center gap-2">
+            <span class="text-sky-400 text-sm">★</span>
+            <span class="text-xs font-medium text-zinc-300 italic">"${escapeHtml(userQuery)}"</span>
+          </div>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-zinc-300 font-semibold">${langBadge}</span>
+        </div>
+        ${title ? `<div class="text-xs uppercase tracking-wider text-pink-400 font-semibold">${escapeHtml(title)}</div>` : ''}
+        <div class="text-sm sm:text-base font-medium text-white leading-relaxed">${spokenText}</div>
+        ${widgetHtml ? `<div class="pt-2">${widgetHtml}</div>` : ''}
+      `;
+
+      siriStream.appendChild(card);
+      siriStream.scrollTop = siriStream.scrollHeight;
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    // --- Multilingual Command Intelligence Engine ---
+    function processUserCommand(rawInput) {
+      if (!rawInput || !rawInput.trim()) return;
+
+      // Strip leading wake word if present ("Jarvis, ...", "Hey Jarvis ...")
+      let cleanQuery = rawInput.trim();
+      const stripped = cleanQuery.replace(/^(hey\s+jarvis|hi\s+jarvis|ok\s+jarvis|jarvis|जार्विस|जॉर्विस|جارفيس|ジャービス|贾维斯)[,\s!.:;-]*/i, '').trim();
+
+      // If user ONLY said "Jarvis" with no follow-up command, summon Jarvis!
+      if (!stripped) {
+        const lang = detectLanguageFromText(rawInput);
+        const bundle = getLocaleBundle(lang);
+        liveUserTranscript.textContent = `"${rawInput}"`;
+        assistantStateSubtitle.textContent = bundle.listening;
+        appendSiriCard({
+          userQuery: rawInput,
+          langCode: lang,
+          title: 'Jarvis Summoned',
+          spokenText: bundle.greeting,
+          widgetHtml: ''
+        });
+        speakResponse(bundle.greeting, lang);
+        return;
+      }
+
+      const query = stripped;
+      const lang = detectLanguageFromText(query);
+      const bundle = getLocaleBundle(lang);
+      const lower = query.toLowerCase();
+
+      liveUserTranscript.textContent = `"${rawInput}"`;
+      assistantStateSubtitle.textContent = 'Jarvis responded';
+
+      // 1. WEATHER INTENT (English, Hindi, Marathi, Spanish, French, etc.)
+      if (/(weather|temperature|forecast|मौसम|हवामान|clima|tiempo|météo|wetter|天気|天气|طقس)/i.test(query)) {
+        let city = 'Mumbai, Maharashtra';
+        const cityMatch = query.match(/(?:in|at|for|में|मध्ये|en|à)\s+([A-Za-z\u0900-\u097F\s]{2,20})/i);
+        if (cityMatch && cityMatch[1]) {
+          city = cityMatch[1].trim();
+        }
+        const tempC = 29;
+        const spoken = lang.startsWith('hi')
+          ? `${city} में अभी तापमान ${tempC}°C है और आसमान साफ है।`
+          : lang.startsWith('mr')
+          ? `${city} मध्ये सध्या तापमान ${tempC}°C आहे आणि हवामान स्वच्छ आहे.`
+          : lang.startsWith('es')
+          ? `Actualmente hace ${tempC}°C y está despejado en ${city}.`
+          : `It's currently ${tempC}°C and mostly clear in ${city}. High of 32°C, low of 25°C today.`;
+
+        const widgetHtml = `
+          <div class="rounded-2xl p-4 bg-gradient-to-br from-sky-500/30 via-indigo-600/25 to-purple-700/25 border border-white/15 flex items-center justify-between">
+            <div>
+              <div class="text-xs text-sky-200 font-medium">${escapeHtml(city)}</div>
+              <div class="text-3xl font-bold text-white mt-0.5">${tempC}°C</div>
+              <div class="text-xs text-zinc-300 mt-1">Mostly Clear • H:32° L:25°</div>
+            </div>
+            <div class="text-5xl">⛅</div>
+          </div>
+        `;
+        appendSiriCard({ userQuery: rawInput, langCode: lang, title: bundle.weatherTitle, spokenText: spoken, widgetHtml });
+        speakResponse(spoken, lang);
+        finishSiriTurn();
+        return;
+      }
+
+      // 2. TIMER / ALARM INTENT
+      if (/(timer|alarm|countdown|टायमर|टाइमर|अलार्म|temporizador|minuteur)/i.test(query)) {
+        const numMatch = query.match(/(\d+)/);
+        let seconds = numMatch ? parseInt(numMatch[1], 10) : 10;
+        if (/(minute|min|मिनट|मिनिट)/i.test(query)) seconds *= 60;
+
+        startSiriTimer(seconds);
+        const spoken = lang.startsWith('hi')
+          ? `${seconds} सेकंड का टाइमर शुरू कर दिया गया है।`
+          : lang.startsWith('mr')
+          ? `${seconds} सेकंदाचा टायमर सुरू केला आहे.`
+          : `Okay, your timer is set for ${seconds} seconds and counting down now.`;
+
+        const widgetHtml = `
+          <div class="rounded-2xl p-4 bg-white/5 border border-white/15 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <span class="text-2xl">⏱️</span>
+              <div>
+                <div class="text-xs text-zinc-400">Siri Star Timer</div>
+                <div class="text-2xl font-mono font-bold text-amber-400 live-timer-readout">${formatSeconds(seconds)}</div>
+              </div>
+            </div>
+            <button type="button" onclick="window.stopSiriTimer()" class="px-3 py-1.5 rounded-full bg-rose-500/20 hover:bg-rose-500/40 border border-rose-400/30 text-xs text-rose-200 transition">
+              Cancel Timer
+            </button>
+          </div>
+        `;
+        appendSiriCard({ userQuery: rawInput, langCode: lang, title: 'Timer Set', spokenText: spoken, widgetHtml });
+        speakResponse(spoken, lang);
+        finishSiriTurn();
+        return;
+      }
+
+      // 3. TRANSLATION ACROSS LANGUAGES INTENT
+      if (/(translate|traduce|traduis|übersetze|अनुवाद|भाषांतर|meaning in)/i.test(query)) {
+        const phraseMatch = query.match(/['"“”]([^'"“”]+)['"“”]/);
+        const phrase = phraseMatch ? phraseMatch[1] : 'Good morning, my friend';
+        const translations = buildMultilingualTranslations(phrase);
+
+        const spoken = `Here is "${phrase}" translated across major world languages: In Spanish, "${translations.es}". In French, "${translations.fr}". In Hindi, "${translations.hi}". In Marathi, "${translations.mr}". In Japanese, "${translations.ja}".`;
+        const widgetHtml = `
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+            <div class="p-2.5 rounded-xl bg-white/5 border border-white/10"><span class="text-zinc-400">🇪🇸 Spanish:</span> <strong class="text-white block mt-0.5">${escapeHtml(translations.es)}</strong></div>
+            <div class="p-2.5 rounded-xl bg-white/5 border border-white/10"><span class="text-zinc-400">🇫🇷 French:</span> <strong class="text-white block mt-0.5">${escapeHtml(translations.fr)}</strong></div>
+            <div class="p-2.5 rounded-xl bg-white/5 border border-white/10"><span class="text-zinc-400">🇮🇳 Hindi:</span> <strong class="text-white block mt-0.5">${escapeHtml(translations.hi)}</strong></div>
+            <div class="p-2.5 rounded-xl bg-white/5 border border-white/10"><span class="text-zinc-400">🇮🇳 Marathi:</span> <strong class="text-white block mt-0.5">${escapeHtml(translations.mr)}</strong></div>
+            <div class="p-2.5 rounded-xl bg-white/5 border border-white/10"><span class="text-zinc-400">🇯🇵 Japanese:</span> <strong class="text-white block mt-0.5">${escapeHtml(translations.ja)}</strong></div>
+            <div class="p-2.5 rounded-xl bg-white/5 border border-white/10"><span class="text-zinc-400">🇸🇦 Arabic:</span> <strong class="text-white block mt-0.5">${escapeHtml(translations.ar)}</strong></div>
+          </div>
+        `;
+        appendSiriCard({ userQuery: rawInput, langCode: lang, title: 'Jarvis Polyglot Translator', spokenText: spoken, widgetHtml });
+        speakResponse(spoken, 'en-US');
+        finishSiriTurn();
+        return;
+      }
+
+      // 4. MATH / TIP / CALCULATOR & DEVICE SETTINGS
+      if (/(calculate|tip|percent|brightness|volume|wifi|bluetooth|flashlight|\d+\s*[\+\-\*\/\%]\s*\d+)/i.test(query)) {
+        let calcResultText = '';
+        const tipMatch = query.match(/(\d+(?:\.\d+)?)\s*%\s*(?:tip\s*on|of)\s*([\d,]+)/i);
+        if (tipMatch) {
+          const pct = parseFloat(tipMatch[1]);
+          const base = parseFloat(tipMatch[2].replace(/,/g, ''));
+          const tip = (base * pct / 100).toFixed(2);
+          const total = (base + parseFloat(tip)).toFixed(2);
+          calcResultText = `${pct}% of ${base.toLocaleString()} is ${tip} (Total: ${total}). `;
+        }
+
+        const brightMatch = query.match(/brightness\s*(?:to)?\s*(\d+)/i);
+        if (brightMatch) {
+          state.deviceSettings.brightness = Math.min(100, Math.max(0, parseInt(brightMatch[1], 10)));
+        }
+
+        const spoken = `${calcResultText}I've also updated your Siri Star Control Center. Brightness is set to ${state.deviceSettings.brightness}%.`;
+        const widgetHtml = `
+          <div class="rounded-2xl p-3.5 bg-white/5 border border-white/15 space-y-2.5 text-xs">
+            <div class="flex items-center justify-between">
+              <span class="text-zinc-300">☀️ Display Brightness</span>
+              <span class="font-semibold text-sky-400">${state.deviceSettings.brightness}%</span>
+            </div>
+            <div class="w-full bg-white/10 h-2 rounded-full overflow-hidden">
+              <div class="bg-gradient-to-r from-sky-400 to-purple-500 h-full" style="width: ${state.deviceSettings.brightness}%"></div>
+            </div>
+            <div class="flex items-center justify-between pt-1">
+              <span class="px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300">Wi-Fi: Connected</span>
+              <span class="px-2.5 py-1 rounded-lg bg-sky-500/20 text-sky-300">Bluetooth: On</span>
+              <span class="px-2.5 py-1 rounded-lg bg-purple-500/20 text-purple-300">Star Core: Active</span>
+            </div>
+          </div>
+        `;
+        appendSiriCard({ userQuery: rawInput, langCode: lang, title: 'Calculation & System Controls', spokenText: spoken, widgetHtml });
+        speakResponse(spoken, lang);
+        finishSiriTurn();
+        return;
+      }
+
+      // 5. MUSIC PLAYER INTENT
+      if (/(play|music|song|synthwave|गाना|संगीत|música)/i.test(query)) {
+        const spoken = `Now playing "Cosmic Starlight Synthwave" on Jarvis Music.`;
+        const widgetHtml = `
+          <div class="rounded-2xl p-4 bg-gradient-to-r from-fuchsia-600/25 via-purple-600/25 to-sky-600/25 border border-white/15 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-pink-500 to-indigo-600 flex items-center justify-center text-xl shadow">🎵</div>
+              <div>
+                <div class="text-sm font-semibold text-white">Cosmic Starlight (Jarvis Mix)</div>
+                <div class="text-xs text-zinc-300">Star Audio Engine • Spatial Stereo</div>
+              </div>
+            </div>
+            <button type="button" onclick="window.toggleAmbientSynth()" class="px-3.5 py-1.5 rounded-full bg-white text-black text-xs font-semibold hover:opacity-90 transition">
+              Play / Chime
+            </button>
+          </div>
+        `;
+        appendSiriCard({ userQuery: rawInput, langCode: lang, title: 'Jarvis Music', spokenText: spoken, widgetHtml });
+        playSiriChime('wake');
+        speakResponse(spoken, lang);
+        finishSiriTurn();
+        return;
+      }
+
+      // 6. TIME / DATE INTENT
+      if (/(time|date|clock|समय|वेळ|hora|heure|uhrzeit|時間|时间|الوقت)/i.test(query)) {
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const dateStr = now.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+        const spoken = `${bundle.timePrefix} ${timeStr} (${dateStr}).`;
+        appendSiriCard({
+          userQuery: rawInput,
+          langCode: lang,
+          title: 'World Clock',
+          spokenText: spoken,
+          widgetHtml: `<div class="text-2xl font-bold text-sky-300">${timeStr} <span class="text-xs font-normal text-zinc-400 block mt-0.5">${dateStr}</span></div>`
+        });
+        speakResponse(spoken, lang);
+        finishSiriTurn();
+        return;
+      }
+
+      // 7. JOKE INTENT
+      if (/(joke|funny|laugh|जोक|चुटकुला| विनोद|blague|chiste)/i.test(query)) {
+        const spoken = bundle.joke;
+        appendSiriCard({ userQuery: rawInput, langCode: lang, title: 'Jarvis Humor', spokenText: spoken, widgetHtml: '' });
+        speakResponse(spoken, lang);
+        finishSiriTurn();
+        return;
+      }
+
+      // 8. WHO ARE YOU / CAPABILITIES
+      if (/(who are you|your name|what can you do|siri|कौन हो|तुझे नाव|quién eres|qui es-tu)/i.test(query)) {
+        const spoken = bundle.identity;
+        appendSiriCard({ userQuery: rawInput, langCode: lang, title: 'About Jarvis', spokenText: spoken, widgetHtml: '' });
+        speakResponse(spoken, lang);
+        finishSiriTurn();
+        return;
+      }
+
+      // 9. GENERAL MULTILINGUAL AI RESPONSE
+      const generalReply = lang.startsWith('hi')
+        ? `मैंने आपका संदेश समझ लिया: "${query}". मैं जार्विस हूँ और आपकी हर भाषा में मदद के लिए तैयार हूँ!`
+        : lang.startsWith('mr')
+        ? `मला तुमचा प्रश्न समजला: "${query}". मी जॉर्विस आहे आणि तुमच्या सेवेत नेहमी तयार आहे!`
+        : lang.startsWith('es')
+        ? `Entendido: "${query}". Como Jarvis, tu asistente personal con emblema de estrella, estoy listo para ayudarte en cualquier idioma.`
+        : lang.startsWith('fr')
+        ? `Bien reçu : "${query}". En tant que Jarvis, je suis à votre disposition dans toutes les langues.`
+        : `Here's what I found for "${query}": As Jarvis, your Siri-style assistant with a Star core, I've processed your request right away. Ask me about weather, timers, translations, music, calculations, or speak to me in any language!`;
+
+      appendSiriCard({
+        userQuery: rawInput,
+        langCode: lang,
+        title: 'Jarvis Response',
+        spokenText: generalReply,
+        widgetHtml: ''
+      });
+      speakResponse(generalReply, lang);
+      finishSiriTurn();
+    }
+
+    function buildMultilingualTranslations(phrase) {
+      const lower = phrase.toLowerCase();
+      if (lower.includes('good morning')) {
+        return {
+          es: 'Buenos días, mi amigo',
+          fr: 'Bonjour, mon ami',
+          hi: 'सुप्रभात, मेरे दोस्त',
+          mr: 'शुभ सकाळ, माझ्या मित्रा',
+          ja: 'おはようございます、友よ (Ohayō gozaimasu, tomo yo)',
+          ar: 'صباح الخير يا صديقي'
+        };
+      }
+      return {
+        es: `${phrase} (en Español)`,
+        fr: `${phrase} (en Français)`,
+        hi: `${phrase} (हिन्दी अनुवाद)`,
+        mr: `${phrase} (मराठी भाषांतर)`,
+        ja: `${phrase} (日本語翻訳)`,
+        ar: `${phrase} (ترجمة عربية)`
+      };
+    }
+
+    // --- Timer Helper ---
+    function formatSeconds(sec) {
+      const m = Math.floor(sec / 60).toString().padStart(2, '0');
+      const s = (sec % 60).toString().padStart(2, '0');
+      return `${m}:${s}`;
+    }
+
+    function startSiriTimer(seconds) {
+      if (state.activeTimerInterval) clearInterval(state.activeTimerInterval);
+      state.timerRemainingSec = seconds;
+
+      state.activeTimerInterval = setInterval(() => {
+        state.timerRemainingSec = Math.max(0, state.timerRemainingSec - 1);
+        document.querySelectorAll('.live-timer-readout').forEach(el => {
+          el.textContent = formatSeconds(state.timerRemainingSec);
+        });
+        if (state.timerRemainingSec <= 0) {
+          clearInterval(state.activeTimerInterval);
+          state.activeTimerInterval = null;
+          playSiriChime('wake');
+          speakResponse('Your Jarvis timer is done!', 'en-US');
+        }
+      }, 1000);
+    }
+
+    window.stopSiriTimer = function() {
+      if (state.activeTimerInterval) {
+        clearInterval(state.activeTimerInterval);
+        state.activeTimerInterval = null;
+      }
+      document.querySelectorAll('.live-timer-readout').forEach(el => {
+        el.textContent = 'Cancelled';
+      });
+    };
+
+    window.toggleAmbientSynth = function() {
+      playSiriChime('wake');
+    };
+
+    function finishSiriTurn() {
+      playSiriChime('done');
+      setTimeout(() => {
+        if (!state.isListeningCommand) {
+          state.isAwake = false;
+          siriEdgeGlow.classList.remove('active');
+          starOrbBtn.classList.remove('star-orb-active');
+          starAura.classList.remove('scale-125');
+        }
+      }, 1800);
+    }
+
+    // --- Web Speech API: Continuous Wake Word ("Jarvis") + Multilingual Voice Capture ---
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let wakeRecognition = null;
+    let commandRecognition = null;
+
+    function initWakeWordListener() {
+      if (!SpeechRecognition) {
+        wakeWordStatusBadge.textContent = 'Voice API unavailable in iframe • Tap "Say Jarvis"';
+        return;
+      }
+
+      try {
+        wakeRecognition = new SpeechRecognition();
+        wakeRecognition.continuous = true;
+        wakeRecognition.interimResults = true;
+        wakeRecognition.lang = state.selectedLang === 'auto' ? 'en-US' : state.selectedLang;
+
+        wakeRecognition.onresult = (event) => {
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript.trim();
+            const lower = transcript.toLowerCase();
+
+            // Check if wake word "Jarvis" was spoken
+            const matchedWake = wakeWordVariants.some(w => lower.includes(w));
+            if (matchedWake) {
+              liveUserTranscript.textContent = `"${transcript}"`;
+              if (event.results[i].isFinal) {
+                summonJarvisOnScreen(transcript, true);
+              } else {
+                // Visual instant wake feedback
+                state.isAwake = true;
+                siriEdgeGlow.classList.add('active');
+                starOrbBtn.classList.add('star-orb-active');
+              }
+            }
+          }
+        };
+
+        wakeRecognition.onerror = () => {
+          // Silently handle sandbox permission restrictions
+        };
+
+        wakeRecognition.onend = () => {
+          if (state.alwaysListenWakeWord && !state.isListeningCommand) {
+            try { wakeRecognition.start(); } catch (e) {}
+          }
+        };
+
+        if (state.alwaysListenWakeWord) {
+          wakeRecognition.start();
+        }
+      } catch (e) {
+        // Fallback if microphone restricted
+      }
+    }
+
+    function startSingleCommandVoiceCapture() {
+      if (!SpeechRecognition) {
+        assistantStateSubtitle.textContent = 'Type your command below or click a suggestion chip!';
+        jarvisInput.focus();
+        return;
+      }
+
+      try {
+        if (wakeRecognition) {
+          try { wakeRecognition.stop(); } catch (e) {}
+        }
+
+        state.isListeningCommand = true;
+        commandRecognition = new SpeechRecognition();
+        commandRecognition.continuous = false;
+        commandRecognition.interimResults = true;
+        commandRecognition.lang = state.selectedLang === 'auto' ? 'en-US' : state.selectedLang;
+
+        commandRecognition.onresult = (event) => {
+          const transcript = Array.from(event.results)
+            .map(r => r[0].transcript)
+            .join('');
+          liveUserTranscript.textContent = `"${transcript}"`;
+          state.audioAmplitude = 0.85;
+
+          if (event.results[0].isFinal) {
+            state.isListeningCommand = false;
+            processUserCommand(transcript);
+          }
+        };
+
+        commandRecognition.onerror = () => {
+          state.isListeningCommand = false;
+          assistantStateSubtitle.textContent = 'Mic blocked by browser sandbox — type or tap any command!';
+          jarvisInput.focus();
+        };
+
+        commandRecognition.onend = () => {
+          state.isListeningCommand = false;
+          if (state.alwaysListenWakeWord && wakeRecognition) {
+            try { wakeRecognition.start(); } catch (e) {}
+          }
+        };
+
+        commandRecognition.start();
+      } catch (e) {
+        state.isListeningCommand = false;
+      }
+    }
+
+    // --- Event Listeners ---
+    starOrbBtn.addEventListener('click', () => {
+      summonJarvisOnScreen('', false);
+    });
+
+    micPushBtn.addEventListener('click', () => {
+      summonJarvisOnScreen('', false);
+    });
+
+    simulateWakeBtn.addEventListener('click', () => {
+      summonJarvisOnScreen('Jarvis', true);
+    });
+
+    toggleWakeWordBtn.addEventListener('click', () => {
+      state.alwaysListenWakeWord = !state.alwaysListenWakeWord;
+      if (state.alwaysListenWakeWord) {
+        wakeDot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+        wakeBtnLabel.textContent = 'Always Listen: ON';
+        wakeWordStatusBadge.textContent = 'Wake word: "Jarvis" Active';
+        if (wakeRecognition) {
+          try { wakeRecognition.start(); } catch (e) {}
+        }
+      } else {
+        wakeDot.className = 'w-2 h-2 rounded-full bg-zinc-500';
+        wakeBtnLabel.textContent = 'Always Listen: OFF';
+        wakeWordStatusBadge.textContent = 'Wake word: Paused';
+        if (wakeRecognition) {
+          try { wakeRecognition.stop(); } catch (e) {}
+        }
+      }
+    });
+
+    languageSelect.addEventListener('change', (e) => {
+      state.selectedLang = e.target.value;
+      if (wakeRecognition) {
+        wakeRecognition.lang = state.selectedLang === 'auto' ? 'en-US' : state.selectedLang;
+      }
+      const lang = state.selectedLang === 'auto' ? 'en-US' : state.selectedLang;
+      const bundle = getLocaleBundle(lang);
+      assistantStateSubtitle.textContent = bundle.listening;
+    });
+
+    toggleTtsBtn.addEventListener('click', () => {
+      state.ttsEnabled = !state.ttsEnabled;
+      ttsIcon.textContent = state.ttsEnabled ? '🔊' : '🔇';
+      if (!state.ttsEnabled && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    });
+
+    clearHistoryBtn.addEventListener('click', () => {
+      siriStream.innerHTML = '';
+      liveUserTranscript.textContent = '';
+      assistantStateSubtitle.textContent = 'Screen cleared • Say "Jarvis" or tap the Star orb';
+      state.isAwake = false;
+      siriEdgeGlow.classList.remove('active');
+      starOrbBtn.classList.remove('star-orb-active');
+    });
+
+    jarvisForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const text = jarvisInput.value.trim();
+      if (!text) return;
+      jarvisInput.value = '';
+      playSiriChime('wake');
+      state.isAwake = true;
+      siriEdgeGlow.classList.add('active');
+      starOrbBtn.classList.add('star-orb-active');
+      processUserCommand(text);
+    });
+
+    document.querySelectorAll('.quick-chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const prompt = btn.getAttribute('data-prompt');
+        playSiriChime('wake');
+        state.isAwake = true;
+        siriEdgeGlow.classList.add('active');
+        starOrbBtn.classList.add('star-orb-active');
+        processUserCommand(prompt);
+      });
+    });
+
+    // Initialize Wake Word Listener on load
+    window.addEventListener('load', () => {
+      initWakeWordListener();
+    });
+  </script>
+</body>
+</html>
